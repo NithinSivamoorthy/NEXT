@@ -13,8 +13,8 @@ Use `npm run ios`, `npm run android`, or `npm run web` to open a specific target
 
 ## Isolated universe prototype
 
-The home route now renders a procedural hero star and a seeded 3D star field.
-There are no product flows or progression rules yet.
+The universe destination renders a procedural hero star and a seeded 3D star field.
+Checkpoint 3 adds a pre-universe flow; progression rules are not implemented.
 
 - **iPhone / Android:** drag with one finger to orbit; pinch to zoom. Camera pitch
   and distance are bounded, with damping and short release inertia.
@@ -75,5 +75,51 @@ npx expo export --platform web
 Expo's online dependency metadata currently recommends TypeScript `~6.0.3`,
 while this foundation uses `5.9.3`. The offline dependency check passes but does
 not validate TypeScript against that online recommendation. The prototype
-preserves the existing compiler version. Native device
-rendering and thermal/performance behavior still need an iPhone check.
+preserves the existing compiler version. Checkpoint 2 was verified by the user
+on a real iPhone; sustained thermal behavior remains a device-level check.
+
+## Checkpoint 3: core experience
+
+The home route now starts the pre-universe flow:
+launch → entry → philosophy → five questions → local personalization → first
+NEXT → universe narrative → the existing interactive universe.
+
+- `src/features/experience/model.ts`: typed answers and session reducer.
+- `ExperienceProvider.tsx`: in-memory session, accessibility and app activity.
+- `content.ts`: centralized onboarding copy, choices and narrative frames.
+- `personalization.ts`: deterministic local first action behind an abortable async
+  interface. No external service is contacted.
+- `ui.tsx`, `CinematicSequence.tsx`, `QuestionScreen.tsx`, `FlowScreens.tsx`:
+  shared mobile layout, motion, questions and flow screens.
+- Routes: `/`, `/entry`, `/philosophy`, `/onboarding/[step]`, `/personalizing`,
+  `/first-next`, `/universe-intro`, `/universe`.
+
+Answers survive Back navigation within the session. Reload resets the session;
+there is no persistence. The universe has a **development-only Replay intro**
+control. Timed text becomes manually advanced when a screen reader is enabled.
+Reduce Motion removes fades and translation; backgrounding pauses sequences.
+
+### Checkpoint 3 physical iPhone acceptance
+
+Start with `npm start -- --clear` (stop the old Metro process first), scan its QR
+code with the existing SDK 57 Expo Go installation, and reload if necessary.
+
+1. Watch the black launch, wordmark and tagline; tap Begin on entry.
+2. Watch both philosophy frames. Answer all five questions, checking multiline
+   keyboard layout and that blank answers cannot continue.
+3. Go Back and confirm earlier answers and selected choices remain intact.
+4. Finish onboarding. Check the brief loading moment and first NEXT. Try different
+   text, time budgets and challenge levels across replays.
+5. Tap Enter my universe, watch the narrative, and confirm the existing star
+   renders. Test drag, pinch, inertia, limits and sustained interaction.
+6. Background/reopen during the intro and in the universe. Repeat with iOS Reduce
+   Motion, larger text and VoiceOver enabled.
+7. Tap Replay intro in development, or reload Expo Go, to start again.
+
+The user verified Checkpoint 2 on a physical iPhone. Checkpoint 3's full native
+flow, keyboard, accessibility and return to the universe require device testing;
+TypeScript, exports and browser checks cannot establish native acceptance.
+
+Design deliberately uses system typography, core React Native animations and
+restrained procedural UI marks. No astronaut model, final design assets,
+authentication, AI, completion or universe progression is included.
