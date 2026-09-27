@@ -4,7 +4,7 @@
 
 NEXT helps people who know where they want their life to go but cannot see the next meaningful action. It turns personal context into one small step, then makes completed steps visible in an evolving 3D universe.
 
-Built for **ShellHacks**.
+Built for **ShellHacks**. using the help of codex code generation.
 
 ## How it works
 
