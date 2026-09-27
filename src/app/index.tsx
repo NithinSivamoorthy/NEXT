@@ -1,1 +1,1 @@
-export { LaunchScreen as default } from '../features/experience/FlowScreens';
+export { ProductLaunch as default } from '../features/product/Screens';

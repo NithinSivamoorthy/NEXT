@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending, type Group, Points, ShaderMaterial, Vector3 } from 'three';
 import { CinematicScene, type SceneProps } from '../cinematic/CinematicScene';
@@ -8,6 +8,7 @@ import { FirstConsequence } from './FirstConsequence';
 import { consequenceAt } from './consequence';
 import type { FirstContact } from './interaction';
 export type PersonalizationProps = SceneProps & {
+  children?: ReactNode;
   interaction: FirstContact;
   onProject: (x: number, y: number) => void;
 };
@@ -25,7 +26,7 @@ export function PersonalizationScene(props: PersonalizationProps) {
       proxy.rotation.z += 0.09 * smooth(1.5, 3.5, props.interaction.elapsed - props.interaction.answeredAt);
     }
   }, [props.interaction, props.reducedMotion]);
-  return <><CinematicScene {...props} openingHold={2.4} travelClock={contactTravelClock} energeticTravel discoveryEnd={18.75} holdAt={19.25} onProxyFrame={onProxyFrame} /><Signal {...props} /><FirstConsequence {...props} /></>;
+  return <><CinematicScene {...props} openingHold={2.4} travelClock={contactTravelClock} energeticTravel discoveryEnd={18.75} holdAt={19.25} onProxyFrame={onProxyFrame} /><Signal {...props} /><FirstConsequence {...props} />{props.children}</>;
 }
 function Signal({ point, reducedMotion, interaction, onProject }: PersonalizationProps) {
   const mesh = useRef<Points>(null);

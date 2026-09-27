@@ -53,7 +53,8 @@ export class UniverseCamera {
   }
 
   zoom(ratio: number) {
-    this.targetDistance = clamp(this.targetDistance * ratio, 7, 16);
+    if (!Number.isFinite(ratio) || ratio <= 0) return;
+    this.targetDistance = clamp(this.targetDistance * ratio, 5.5, 18.5);
   }
 
   step(delta: number, reducedMotion: boolean) {

@@ -18,12 +18,45 @@ class Boundary extends Component<{children:ReactNode; onError:(message:string)=>
   componentDidCatch(error:Error){console.error('First contact renderer failed',error);this.props.onError(error.message);}
   render(){return this.state.failed?null:this.props.children;}
 }
-export default function PersonalizationScreen(){
+type ProductionBridge={onComplete?:(answer:string)=>void;onAnswer?:(answer:string)=>void;onRecovery?:()=>void; arrivalOnly?:boolean; onArrival?:()=>void;
+  /** Resumes a cinematic that already handed off, instead of replaying the opening. */
+  initialTime?:number;
+  /** Leaves for the dedicated auth screen once the travel has decelerated this far. */
+  handoffAt?:number; onHandoff?:(seconds:number)=>void};
+export default function PersonalizationScreen(props:ProductionBridge){
   const [run,setRun]=useState(0);
-  return <Player key={run} replay={()=>setRun(v=>v+1)}/>;
+  return <Player {...props} key={run} replay={()=>setRun(v=>v+1)}/>;
 }
-function Player({replay}:{replay:()=>void}) {
+function Player({replay,onComplete,onAnswer,onRecovery,arrivalOnly=false,onArrival,initialTime=0,handoffAt,onHandoff}:ProductionBridge & {replay:()=>void}) {
   const {settings}=useExperience();
+  const arrived=useRef(false);
+  const handedOff=useRef(false);
+  const clock=useRef(initialTime);
+  const exitOpacity=useRef(new Animated.Value(0)).current;
+  const entryOpacity=useRef(new Animated.Value(initialTime>0?1:0)).current;
+  const exitAnimation=useRef<Animated.CompositeAnimation|null>(null);
+  useEffect(()=>()=>exitAnimation.current?.stop(),[]);
+  // Arriving back from the auth screen, the travel fades up out of the darkness it left in.
+  useEffect(()=>{
+    if(initialTime<=0)return;
+    const animation=Animated.timing(entryOpacity,{toValue:0,duration:settings.reducedMotion?250:700,useNativeDriver:false});
+    animation.start();return()=>animation.stop();
+  },[initialTime,settings.reducedMotion,entryOpacity]);
+  const leave=useCallback((after:()=>void)=>{
+    exitAnimation.current=Animated.timing(exitOpacity,{toValue:1,duration:settings.reducedMotion?300:700,useNativeDriver:false});
+    exitAnimation.current.start(({finished})=>{if(finished)after();});
+  },[exitOpacity,settings.reducedMotion]);
+  const onClock=useCallback((seconds:number)=>{
+    clock.current=seconds;
+    if(handoffAt!==undefined&&!handedOff.current&&seconds>=handoffAt){
+      handedOff.current=true;
+      leave(()=>onHandoff?.(clock.current));
+    }
+    if(arrivalOnly&&!arrived.current&&seconds>=(settings.reducedMotion?14:14.6)){
+      arrived.current=true;
+      leave(()=>onArrival?.());
+    }
+  },[handoffAt,onHandoff,arrivalOnly,settings.reducedMotion,leave,onArrival]);
   const motionMode = settings.ready ? settings.reducedMotion : null;
   const [loaded,fontError]=useFonts({
     'Contact-Clash':require('../../../../assets/dev/typography/ClashDisplay-Bold.otf'),
@@ -33,12 +66,15 @@ function Player({replay}:{replay:()=>void}) {
   const [interaction]=useState(()=>new FirstContact());
   const [snapshot,setSnapshot]=useState<Snapshot>(interaction.snapshot);
   interaction.onChange=setSnapshot;
+  useEffect(()=>{if(snapshot.phase==='answered')onAnswer?.(interaction.draft.trim());if(snapshot.phase==='settled')onComplete?.(interaction.draft.trim());},[snapshot.phase,interaction,onAnswer,onComplete]);
   const [focused,setFocused]=useState(true);
   useFocusEffect(useCallback(()=>{setFocused(true);return ()=>{interaction.setActive(false);setFocused(false);};},[interaction]));
   const router=useRouter(); const insets=useSafeAreaInsets(); const window=useWindowDimensions();
   const [bounds,setBounds]=useState({width:window.width,height:window.height});
   const [textWidth,setTextWidth]=useState(0);
   const [error,setError]=useState<string|null>(null);
+  // A failed renderer must still reach the auth screen rather than stranding the launch.
+  useEffect(()=>{if((error||fontError)&&handoffAt!==undefined&&!handedOff.current){handedOff.current=true;onHandoff?.(handoffAt);}},[error,fontError,handoffAt,onHandoff]);
   const root=useRef<View>(null);
   const rootY=useRef(0);
   // Screen-wide ownership rule: every Animated graph remains JS-driven for life.
@@ -123,10 +159,10 @@ function Player({replay}:{replay:()=>void}) {
   const errorText=error??fontError?.message;
   return <View ref={root} style={s.screen} onLayout={({nativeEvent})=>{setBounds(nativeEvent.layout);root.current?.measureInWindow((_x,y)=>{rootY.current=y;});}}>
     <StatusBar hidden/>
-    {loaded&&motionMode!==null&&textWidth>0&&<View style={[StyleSheet.absoluteFill,{pointerEvents:'none'}]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    {loaded&&focused&&motionMode!==null&&textWidth>0&&<View style={[StyleSheet.absoluteFill,{pointerEvents:'none'}]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <Boundary onError={setError}><ExperienceCanvas active={settings.active&&focused} reducedMotion={motionMode}
         point={{x:(textWidth+gap)/2,y:top+size*0.89+diameter/2-bounds.height/2,diameter,height:bounds.height}}
-        onTime={onTime} onHold={onHold} interaction={interaction} onProject={onProject}/></Boundary>
+        onTime={onTime} onHold={onHold} onClock={onClock} initialTime={initialTime} hideAstronaut={arrivalOnly||handoffAt!==undefined} interaction={interaction} onProject={onProject}/></Boundary>
     </View>}
     {loaded&&<Animated.View aria-hidden={snapshot.atHold} accessible={!snapshot.atHold} accessibilityElementsHidden={snapshot.atHold} importantForAccessibility={snapshot.atHold ? 'no-hide-descendants' : 'auto'} accessibilityLabel="NEXT" style={{position:'absolute',top,left:0,right:0,alignItems:'center',opacity,pointerEvents:'none'}}>
       <View style={{paddingRight:gap+diameter}}><Text allowFontScaling={false} onLayout={({nativeEvent})=>setTextWidth(nativeEvent.layout.width)} style={{fontFamily:'Contact-Clash',fontSize:size,lineHeight:size*1.3,letterSpacing:-size*0.025,color:'#f5f5f5',includeFontPadding:false}}>NEXT</Text></View>
@@ -134,7 +170,7 @@ function Player({replay}:{replay:()=>void}) {
     {loaded&&!snapshot.atHold&&<Animated.View accessible accessibilityLabel="BUILD YOUR UNIVERSE, ONE NEXT AT A TIME." style={{position:'absolute',left:24,right:24,bottom:Math.max(insets.bottom+40,56),opacity:slogan,transform:[{translateY:sloganSettle}],pointerEvents:'none'}}>
       <Text style={s.slogan}>{'BUILD YOUR UNIVERSE,\nONE NEXT AT A TIME.'}</Text>
     </Animated.View>}
-    {canActivate&&!errorText&&<>
+    {!arrivalOnly&&canActivate&&!errorText&&<>
       <SignalTarget interaction={interaction} position={targetPosition} screenReader={settings.screenReader} label={answering?'Send reflection to the light':'Touch the light'}/>
       <Animated.View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{position:'absolute',left:0,top:0,width:180,opacity:answering?1:instructionOpacity,transform:instructionPosition.getTranslateTransform(),pointerEvents:'none'}}>
         <Text style={s.instruction}>{answering?'SEND TO THE LIGHT':'TOUCH THE LIGHT'}</Text>
@@ -143,7 +179,7 @@ function Player({replay}:{replay:()=>void}) {
     {(answering||snapshot.phase==='answered')&&<Animated.View pointerEvents={answering?'auto':'none'} aria-hidden={!answering} accessibilityElementsHidden={!answering} importantForAccessibility={answering?'auto':'no-hide-descendants'} style={{position:'absolute',top:restingLayout.top,transform:[{translateY:interpolate(0,typingLayout.top-restingLayout.top)}],left:24,right:24,height:interpolate(restingLayout.height,typingLayout.height),opacity:questionOpacity}}>
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={{paddingBottom:12}}>
         <Animated.Text ref={questionRef} accessible accessibilityRole="header" accessibilityLabel={questions[0].title} {...(Platform.OS==='web'?{tabIndex:-1}:{})} style={[s.question,{fontSize:interpolate(26,19),lineHeight:interpolate(32,23),opacity:interpolate(1,0.72)}]}>{questions[0].title.toUpperCase()}</Animated.Text>
-        <TextInput editable={answering} ref={inputRef} onFocus={()=>setTyping(true)} onBlur={()=>setTyping(false)} value={draft} onChangeText={value=>{setDraft(value);interaction.edit(value);}}
+        <TextInput maxLength={2000} editable={answering} ref={inputRef} onFocus={()=>setTyping(true)} onBlur={()=>setTyping(false)} value={draft} onChangeText={value=>{setDraft(value);interaction.edit(value);}}
           accessibilityLabel="Your reflection: What are you ready to move forward from?"
           accessibilityHint="Write your answer, then send it to the light."
           placeholder="Start wherever you are." placeholderTextColor="#737d8a"
@@ -157,17 +193,20 @@ function Player({replay}:{replay:()=>void}) {
             if(key.key==='Enter'&&!key.shiftKey&&!key.isComposing&&key.keyCode!==229){e.preventDefault();commitAnswer();}
           }}
         />
-        {typing&&snapshot.valid&&<Pressable accessibilityRole="button" accessibilityLabel="Send reflection to the light" onPress={commitAnswer} style={{minHeight:44,justifyContent:'center'}}>
+        {(typing||Platform.OS==='web')&&snapshot.valid&&<Pressable accessibilityRole="button" accessibilityLabel="Send reflection to the light" onPress={commitAnswer} style={{minHeight:44,justifyContent:'center'}}>
           <Text style={s.keyboardAction}>SEND TO THE LIGHT ↗</Text>
         </Pressable>}
       </ScrollView>
     </Animated.View>}
-    {(snapshot.atHold||errorText)&&<View style={[s.controls,{bottom:Math.max(insets.bottom,18),left:24,right:24}]}>
+    {!onComplete&&!onArrival&&!onHandoff&&(snapshot.atHold||errorText)&&<View style={[s.controls,{bottom:Math.max(insets.bottom,18),left:24,right:24}]}>
       {errorText&&<Text accessibilityRole="alert" style={s.error}>First contact could not render: {errorText}</Text>}
       <View style={s.buttons}><Pressable accessibilityRole="button" onPress={replay} style={s.button}><Text style={s.label}>{errorText?'Retry':'Replay'}</Text></Pressable>
         <Pressable accessibilityRole="button" onPress={()=>router.replace('/')} style={s.button}><Text style={s.label}>Exit</Text></Pressable></View>
-      <Text style={s.note}>DEVELOPMENT · TEMPORARY ASTRONAUT</Text>
+      <Text style={s.note}>DEVELOPMENT · CINEMATIC HOST</Text>
     </View>}
+    {(arrivalOnly||handoffAt!==undefined)&&<Animated.View pointerEvents="none" style={{position:'absolute',inset:0,backgroundColor:'#000',opacity:exitOpacity}}/>}
+    {initialTime>0&&<Animated.View pointerEvents="none" style={{position:'absolute',inset:0,backgroundColor:'#000',opacity:entryOpacity}}/>}
+    {(onComplete||onArrival)&&errorText&&<View style={[s.controls,{bottom:Math.max(insets.bottom,24),padding:24}]}><Text style={s.error}>The scene is unavailable. Your journey can still continue.</Text><Pressable accessibilityRole="button" onPress={onRecovery} style={s.button}><Text style={s.label}>Continue</Text></Pressable></View>}
   </View>;
 }
 const s=StyleSheet.create({

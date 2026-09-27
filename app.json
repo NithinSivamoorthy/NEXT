@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "plugins": ["expo-router"],
+    "plugins": ["expo-router", ["expo-image-picker", {"photosPermission": "Allow NEXT to save a photo you choose with a completed NEXT on this device.", "cameraPermission": false, "microphonePermission": false}]],
     "experiments": {
       "typedRoutes": true
     },

@@ -2,12 +2,16 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending, BufferAttribute, Color, Group, Mesh, MeshBasicMaterial, PerspectiveCamera, DirectionalLight, ShaderMaterial, Vector2, Vector3 } from 'three';
 import { boundaryVertex, boundaryFragment } from './pointBoundary';
-import { TemporaryAstronaut } from './TemporaryAstronaut';
+import { Astronaut } from '../../astronaut/Astronaut';
 import { ARRIVAL_DELAY, CONTROLS_AT, PEAK_VELOCITY, smooth, travel } from './timeline';
 
 export type SceneProps = {
   /** Optional development-host refinements; absent preserves the 4B.2 baseline. */
   /** Optional title-only pause; zero preserves the original cinematic. */
+  initialTime?: number;
+  pauseAt?: number;
+  onClock?: (seconds:number)=>void;
+  hideAstronaut?: boolean;
   openingHold?: number;
   energeticTravel?: boolean;
   discoveryEnd?: number;
@@ -53,9 +57,11 @@ void main(){ float r=length(vUv-0.5)*2.0;
 float a=exp(-r*r*9.0)*(1.0-smoothstep(0.65,1.0,r));
 gl_FragColor=vec4(0.60,0.73,1.0,a*strength); }`;
 
-export function CinematicScene({ reducedMotion, point, onTime, onHold, travelClock, onProxyFrame, openingHold = 0, energeticTravel = false, discoveryEnd = 20, holdAt = CONTROLS_AT }: SceneProps) {
-  const time = useRef(0);
+export function CinematicScene({ pauseAt, onClock, hideAstronaut = false, initialTime = 0, reducedMotion, point, onTime, onHold, travelClock, onProxyFrame, openingHold = 0, energeticTravel = false, discoveryEnd = 20, holdAt = CONTROLS_AT }: SceneProps) {
+  const time = useRef(initialTime);
   const held = useRef(false);
+  const pausedAge = useRef(0);
+  const residual = useRef(0);
   const pointMesh = useRef<Mesh>(null);
   const glow = useRef<Mesh>(null);
   const boundary = useRef<Mesh>(null);
@@ -87,8 +93,13 @@ export function CinematicScene({ reducedMotion, point, onTime, onHold, travelClo
   const trailMaterial = useRef<ShaderMaterial>(null);
   useFrame(({ camera }, delta) => {
     // A resumed/background frame never advances the journey by a wall-clock gap.
-    time.current += Math.min(delta, 0.05);
+    time.current = Math.min(time.current + Math.min(delta, 0.05), pauseAt ?? Infinity);
+    onClock?.(time.current);
     const rawTime = time.current;
+    const waiting=pauseAt!==undefined&&rawTime>=pauseAt;
+    // Velocity collapses into the pause and is eased back afterwards, never snapped.
+    pausedAge.current=waiting?Math.min(pausedAge.current+Math.min(delta,.05),3):Math.max(0,pausedAge.current-Math.min(delta,.05)*2.5);
+    residual.current+=((waiting?Math.sin(pausedAge.current*.18)*.12:0)-residual.current)*Math.min(delta,.05)*2;
     // Pause before approach begins. Later animation samples are unchanged, only offset.
     const holdAtTime = reducedMotion ? 2 : 1.25;
     const journeyTime = rawTime <= holdAtTime ? rawTime : Math.max(holdAtTime, rawTime - openingHold);
@@ -105,7 +116,7 @@ export function CinematicScene({ reducedMotion, point, onTime, onHold, travelClo
     if (arrivalTime >= holdAt && !held.current) { held.current = true; onHold(); }
     const motion = travel(t);
     const distance = reducedMotion ? 0 : motion.distance;
-    const velocity = reducedMotion ? 0 : motion.velocity * clock.rate;
+    const velocity = reducedMotion ? 0 : motion.velocity * clock.rate * Math.exp(-pausedAge.current*2);
     const worldPerPixel = 2 * 14 * Math.tan(24 * Math.PI / 180) / point.height;
     const px = point.x * worldPerPixel;
     const py = -point.y * worldPerPixel;
@@ -164,6 +175,7 @@ export function CinematicScene({ reducedMotion, point, onTime, onHold, travelClo
       const depth = ((originDepth - distance) % 180 + 180) % 180;
       // Recycle beyond the eye; near-plane fading hides the wrap.
       const z = -distance - depth - 0.5;
+      x += reducedMotion ? 0 : residual.current;
       stars.positions.setXYZ(i, x, y, z);
       const proximity = 1 - smooth(8, 95, depth);
       const variation = 0.55 + stars.weights.array[i] * 0.8;
@@ -182,7 +194,7 @@ export function CinematicScene({ reducedMotion, point, onTime, onHold, travelClo
       const quietTime = Math.max(0, arrivalTime - 16);
       proxy.current.position.set(px + 1.8 + (reducedMotion ? 0 : Math.sin(quietTime * 0.045) * 0.15), py - 1.7, -depth);
       proxy.current.rotation.set(0.15, -0.72 + (reducedMotion ? 0 : Math.sin(quietTime * 0.025) * 0.12), -0.3 + (reducedMotion ? 0 : Math.sin(quietTime * 0.035) * 0.07));
-      proxy.current.visible = discovery > 0;
+      proxy.current.visible = !hideAstronaut && discovery > 0;
       onProxyFrame?.(proxy.current, Math.min(delta, 0.05));
     }
     if (key.current) {
@@ -212,8 +224,8 @@ export function CinematicScene({ reducedMotion, point, onTime, onHold, travelClo
     </mesh>}
     <mesh visible={reducedMotion} ref={pointMesh}><sphereGeometry args={[1, 16, 12]} /><meshBasicMaterial color="#f5f5f5" transparent opacity={0} toneMapped={false} /></mesh>
     <mesh visible={reducedMotion} ref={glow}><planeGeometry args={[2, 2]} /><shaderMaterial uniforms={glowUniforms} vertexShader={glowVertex} fragmentShader={glowFragment} transparent depthWrite={false} blending={AdditiveBlending} /></mesh>
-    <directionalLight ref={key} color="#a9bdd9" intensity={0} />
+    <directionalLight ref={key} color="#ffe0b1" intensity={0} />
     <directionalLight ref={rim} color="#cfdbef" intensity={0} />
-    <TemporaryAstronaut ref={proxy} />
+    <Astronaut ref={proxy} reducedMotion={reducedMotion} />
   </>;
 }
