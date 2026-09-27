@@ -4,7 +4,7 @@
 
 NEXT helps people who know where they want their life to go but cannot see the next meaningful action. It turns personal context into one small step, then makes completed steps visible in an evolving 3D universe.
 
-Built for **ShellHacks**. using the help of codex code generation.
+Built for **ShellHacks**.
 
 ## How it works
 
@@ -106,6 +106,16 @@ docs/                    Development notes and verification history
 ## Hackathon scope and next steps
 
 This is the ShellHacks build of NEXT. The local identity flow and local persistence make the experience demonstrable without a production account service. Production authentication, secure hosted backend deployment, and cross-device sync are future work.
+
+## Development & AI Assistance
+
+NEXT was built with extensive assistance from OpenAI Codex.
+
+Our team was responsible for the original concept, product direction, UX decisions, visual design language, feature requirements, testing, debugging, and final integration. Codex was used as an AI coding partner to generate and modify a significant portion of the implementation, help diagnose technical issues, and accelerate iteration during the hackathon.
+
+Generated code was not treated as automatically correct. We tested the app on physical hardware, reviewed behavior, identified failures, refined requirements, and iterated until the major product flows worked as intended.
+
+Google Gemini serves a different role inside the finished product. Gemini powers the personalized NEXT generation experienced by users, while Codex was primarily used during development.
 
 ## Credits
 
