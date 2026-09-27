@@ -91,7 +91,7 @@ Hash comparison against the start-of-pass snapshot confirms no changes to packag
 ## Exact iPhone test instructions
 
 1. Keep the working backend running (`npm run server` if it needs starting). Keep Mac and iPhone on the same network; public backend URL remains unchanged.
-2. Stop your Expo Metro with Ctrl+C. From `/Users/nithinsivamoorthy/Documents/NEXT`, run `npx expo start --lan --clear`; scan the QR code into Expo Go.
+2. Stop your Expo Metro with Ctrl+C. From the repository root, run `npx expo start --lan --clear`; scan the QR code into Expo Go.
 3. Existing user: opening → restored universe, no identity form. Tap astronaut, verify spatial focus → full Journey page, all answers/current status, name editing and return pullback.
 4. In Journey, seal a capsule and open I'VE MOVED FORWARD. Confirm your actual words/actions appear and no history disappears.
 5. Open Today/History; drag over the upper planet to rotate it, then scroll text below. Confirm no accidental camera orbit and that universe drag/pinch still work after return.

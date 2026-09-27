@@ -132,7 +132,7 @@ Local storage is device-local, not synced; Reset/uninstall can remove it. Large/
 1. Stop only the existing Expo Metro terminal with Ctrl-C. Leave the backend running. From the existing repository:
 
    ```sh
-   cd /Users/nithinsivamoorthy/Documents/NEXT
+   cd path/to/NEXT
    npx expo start --clear --lan
    ```
 

@@ -62,7 +62,7 @@ Fallback reuses `buildLocalNext`: screen use, connection, work/procrastination o
 No real key has been supplied, written or tested. The live Gemini call is the remaining secret gate.
 
 1. Obtain a Gemini API key at https://aistudio.google.com/apikey.
-2. In `/Users/nithinsivamoorthy/Documents/NEXT`, create the ignored files without replacing any existing files:
+2. In the repository root, create the ignored files without replacing any existing files:
 
    ```sh
    cp -n server/.env.example server/.env
@@ -181,7 +181,7 @@ New development logs show the resolved non-secret URL, outgoing target, explicit
 Verification after this fix (supersedes the initial no-key verification above):
 - Real Gemini call using unchanged local credentials/model `gemini-3.5-flash-lite`: HTTP 200, validated structured output.
 - Actual backend `POST http://127.0.0.1:8787/next`: HTTP 200 through Gemini.
-- Actual client function using `http://10.10.9.161:8787/next`: Gemini source; intentionally unreachable port: local fallback.
+- Actual client function using the configured local backend URL: Gemini source; intentionally unreachable port: local fallback.
 - TypeScript, regression tests and development iOS export passed.
 - Export contains the exact configured LAN URL. Exact-key comparison found no key in export or tracked files; the comparison never printed the key.
 - Physical-iPhone bundle execution still requires retesting; its earlier precise exception was not captured. The server-side request defect was directly reproduced and fixed.
